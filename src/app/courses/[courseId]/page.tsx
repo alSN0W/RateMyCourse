@@ -8,14 +8,16 @@ import CoursePageStats from "@/components/courses/course_page/CoursePageStats";
 import CoursePageReviews from "@/components/courses/course_page/CoursePageReviews";
 import RateThisCourse from "@/components/courses/course_page/RateThisCourse";
 import Example from "@/components/courses/course_page/CoursePageLoader";
+import { use } from 'react';
 
-export default function CoursePage({ params }: { params: { courseId: string } }) {
+export default function CoursePage({ params }: { params: Promise<{ courseId: string }> }) {
+  const { courseId } = use(params);
   const { courses, isLoading } = useCourses();
   const [averageRating, setAverageRating] = useState(0);
   const [reviewCount, setReviewCount] = useState(0);
   const [courseUUID, setCourseUUID] = useState<string | null>(null);
 
-  const course = courses.find((course) => course.id === params.courseId);
+  const course = courses.find((course) => course.id === courseId);
 
   /* ---------- Fetch Course UUID from Supabase ---------- */
   useEffect(() => {

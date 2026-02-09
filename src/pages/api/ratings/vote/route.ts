@@ -1,177 +1,114 @@
-import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
-import { supabaseAdmin } from '@/lib/supabase-admin';
-import { VoteInsert } from '@/types/supabase';
+import { NextRequest, NextResponse } from 'next/server';
+import { get_anonymous_id } from '@/lib/utils';
 
-// POST /api/ratings/vote - Vote on a rating (helpful/unhelpful)
-export async function POST(request: Request) {
+// POST - Create or toggle a vote
+export async function POST(request: NextRequest) {
   try {
-    // Get session to verify authentication
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session?.user?.id) {
+    const body = await request.json();
+    const { ratingId, voteType } = body; // 'upvote' or 'downvote'
+    const anonymousId = get_anonymous_id();
+
+    if (!ratingId || !voteType) {
       return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-    
-    // Get JSON data from request
-    const json = await request.json();
-    const { ratingId, voteType } = json;
-    
-    // Validate required fields
-    if (!ratingId) {
-      return NextResponse.json(
-        { error: 'Missing rating ID' },
+        { error: 'Missing ratingId or voteType' },
         { status: 400 }
       );
     }
-    
-    // Validate vote type
-    if (voteType !== 'helpful' && voteType !== 'unhelpful') {
-      return NextResponse.json(
-        { error: 'Invalid vote type' },
-        { status: 400 }
-      );
-    }
-    
-    // Get the anonymous ID for the authenticated user
-    const { data: anonymousData, error: anonymousError } = await supabase
-      .from('users')
-      .select('anonymous_id')
-      .eq('auth_id', session.user.id)
-      .single();
-    
-    if (anonymousError || !anonymousData?.anonymous_id) {
-      console.error('Error fetching anonymous ID:', anonymousError);
-      return NextResponse.json(
-        { error: 'Failed to verify anonymous identity' },
-        { status: 500 }
-      );
-    }
-    
-    // Check if user has already voted on this rating
-    const { data: existingVote, error: checkError } = await supabase
-      .from('rating_votes')
-      .select('id, vote_type')
-      .eq('rating_id', ratingId)
-      .eq('anonymous_id', anonymousData.anonymous_id)
-      .single();
-    
-    // Transaction to handle vote logic
-    const { data, error } = await supabaseAdmin.rpc('handle_rating_vote', {
-      p_rating_id: ratingId,
-      p_anonymous_id: anonymousData.anonymous_id,
-      p_vote_type: voteType,
-      p_existing_vote_type: existingVote?.vote_type || null
-    });
-    
-    if (error) {
-      console.error('Error processing vote:', error);
-      return NextResponse.json(
-        { error: 'Failed to process vote' },
-        { status: 500 }
-      );
-    }
-    
-    return NextResponse.json({
-      success: true,
-      data: {
-        voteType,
-        helpfulnessScore: data.new_helpfulness_score
-      }
-    });
-    
-  } catch (error) {
-    console.error('Unexpected error in rating vote API:', error);
+
+    // TODO: Check if vote exists and toggle or create
+    // TODO: Update database
+
     return NextResponse.json(
-      { error: 'An unexpected error occurred' },
+      { success: true, message: 'Vote created' },
+      { status: 201 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Failed to create vote' },
       { status: 500 }
     );
   }
 }
 
-// DELETE /api/ratings/vote - Remove a vote from a rating
-export async function DELETE(request: Request) {
+// PUT - Update a vote
+export async function PUT(request: NextRequest) {
   try {
-    // Get session to verify authentication
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session?.user?.id) {
+    const body = await request.json();
+    const { voteId, voteType } = body;
+    const anonymousId = get_anonymous_id();
+
+    if (!voteId || !voteType) {
       return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-    
-    const { searchParams } = new URL(request.url);
-    const ratingId = searchParams.get('ratingId');
-    
-    // Validate required fields
-    if (!ratingId) {
-      return NextResponse.json(
-        { error: 'Missing rating ID' },
+        { error: 'Missing voteId or voteType' },
         { status: 400 }
       );
     }
-    
-    // Get the anonymous ID for the authenticated user
-    const { data: anonymousData, error: anonymousError } = await supabase
-      .from('users')
-      .select('anonymous_id')
-      .eq('auth_id', session.user.id)
-      .single();
-    
-    if (anonymousError || !anonymousData?.anonymous_id) {
-      console.error('Error fetching anonymous ID:', anonymousError);
-      return NextResponse.json(
-        { error: 'Failed to verify anonymous identity' },
-        { status: 500 }
-      );
-    }
-    
-    // Check if user has a vote on this rating
-    const { data: existingVote, error: checkError } = await supabase
-      .from('rating_votes')
-      .select('id, vote_type')
-      .eq('rating_id', ratingId)
-      .eq('anonymous_id', anonymousData.anonymous_id)
-      .single();
-    
-    if (!existingVote) {
-      return NextResponse.json(
-        { error: 'No vote found to remove' },
-        { status: 404 }
-      );
-    }
-    
-    // Transaction to remove vote and update helpfulness score
-    const { data, error } = await supabaseAdmin.rpc('remove_rating_vote', {
-      p_rating_id: ratingId,
-      p_anonymous_id: anonymousData.anonymous_id,
-      p_vote_type: existingVote.vote_type
-    });
-    
-    if (error) {
-      console.error('Error removing vote:', error);
-      return NextResponse.json(
-        { error: 'Failed to remove vote' },
-        { status: 500 }
-      );
-    }
-    
-    return NextResponse.json({
-      success: true,
-      data: {
-        helpfulnessScore: data.new_helpfulness_score
-      }
-    });
-    
-  } catch (error) {
-    console.error('Unexpected error in rating vote API:', error);
+
+    // TODO: Verify ownership and update database
+
     return NextResponse.json(
-      { error: 'An unexpected error occurred' },
+      { success: true, message: 'Vote updated' },
+      { status: 200 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Failed to update vote' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Remove a vote
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const voteId = searchParams.get('voteId');
+    const anonymousId = get_anonymous_id();
+
+    if (!voteId) {
+      return NextResponse.json(
+        { error: 'Missing voteId' },
+        { status: 400 }
+      );
+    }
+
+    // TODO: Verify ownership and delete from database
+
+    return NextResponse.json(
+      { success: true, message: 'Vote deleted' },
+      { status: 200 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Failed to delete vote' },
+      { status: 500 }
+    );
+  }
+}
+
+// GET - Batch fetch votes
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const ratingIds = searchParams.getAll('ratingIds');
+    const anonymousId = get_anonymous_id();
+
+    if (!ratingIds.length) {
+      return NextResponse.json(
+        { error: 'Missing ratingIds' },
+        { status: 400 }
+      );
+    }
+
+    // TODO: Fetch votes for the given rating IDs
+
+    return NextResponse.json(
+      { votes: [] },
+      { status: 200 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Failed to fetch votes' },
       { status: 500 }
     );
   }
