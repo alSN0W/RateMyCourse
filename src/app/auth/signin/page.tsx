@@ -62,7 +62,7 @@ export default function SignIn() {
         </button>
 
         {/* Magic link form (optional) */}
-        {/* 
+        
         <div className="relative mb-4 text-center text-sm text-gray-500">
           <span className="relative z-10 bg-white px-2">or</span>
           <div className="absolute left-0 top-1/2 w-full -translate-y-1/2 border-t border-gray-300"></div>
@@ -107,7 +107,7 @@ export default function SignIn() {
             {message.text}
           </div>
         )}
-        */}
+        
 
         <div className="mt-8 border-t border-gray-200 pt-6 text-center text-sm text-gray-600">
           <Link href="/" className="font-medium text-indigo-600 hover:text-indigo-500">
