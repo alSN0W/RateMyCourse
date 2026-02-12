@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import AddReviewButton from "../AddReviewButton";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { VoteButton } from "@/components/common/VoteButton";
 
 interface CoursePageReviewsProps {
   id: string; // Course ID
@@ -35,9 +36,19 @@ const CourseReviewItem = ({ review }: { review: any }) => {
           {formattedDate}
         </span>
       </div>
-      <p className="text-xs text-gray-700 dark:text-gray-300">
+      
+      <p className="text-xs text-gray-700 dark:text-gray-300 mb-3">
         {review.comment || "No comment provided."}
       </p>
+
+      {/* Vote Button */}
+      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <VoteButton
+          reviewId={review.id}
+          initialVoteCount={review.votes || 0}
+          size="sm"
+        />
+      </div>
     </div>
   );
 };
@@ -59,6 +70,7 @@ const CoursePageReviews = ({ id, reviewCount }: CoursePageReviewsProps) => {
           id,
           anonymous_id,
           comment,
+          votes,
           created_at
         `)
         .eq("target_id", id)

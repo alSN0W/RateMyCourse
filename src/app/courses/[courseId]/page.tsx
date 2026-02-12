@@ -9,7 +9,6 @@ import CoursePageReviews from "@/components/courses/course_page/CoursePageReview
 import RateThisCourse from "@/components/courses/course_page/RateThisCourse";
 import Example from "@/components/courses/course_page/CoursePageLoader";
 import { use } from 'react';
-import { QuickVoteTest } from '@/components/QuickVoteTest';
 // 
 
 
@@ -104,7 +103,6 @@ export default function CoursePage({ params }: { params: Promise<{ courseId: str
           <div className="rounded-2xl p-6 backdrop-blur-md shadow-xl transition-all duration-300 border border-border bg-gradient-to-b from-background to-muted/40 hover:shadow-primary/20">
             <CoursePageReviews id={courseUUID || course.id} reviewCount={reviewCount} />
           </div>
-          <QuickVoteTest />
         </div>
 
         {/* Right Section - Sticky Sidebar */}
