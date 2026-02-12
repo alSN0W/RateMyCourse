@@ -12,7 +12,7 @@ interface CoursePageReviewsProps {
 }
 
 /* Single Review Card (vertical format) */
-const CourseReviewItem = ({ review }: { review: any }) => {
+const CourseReviewItem = ({ review, userVote }: { review: any; userVote?: string | null }) => {
   const formattedDate = new Date(review.created_at).toLocaleString("en-IN", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -45,6 +45,7 @@ const CourseReviewItem = ({ review }: { review: any }) => {
       <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
         <VoteButton
           reviewId={review.id}
+          initialVoteType={userVote as any}
           initialVoteCount={review.votes || 0}
           size="sm"
         />
@@ -56,15 +57,16 @@ const CourseReviewItem = ({ review }: { review: any }) => {
 /* Main Reviews Component */
 const CoursePageReviews = ({ id, reviewCount }: CoursePageReviewsProps) => {
   const [reviews, setReviews] = useState<any[]>([]);
+  const [userVotes, setUserVotes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [showAll, setShowAll] = useState(false); // Toggle for View All
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
-    const fetchReviews = async () => {
+    const fetchReviewsAndVotes = async () => {
       setLoading(true);
 
       // Fetch all reviews
-      const { data, error } = await supabase
+      const { data: reviewsData, error: reviewsError } = await supabase
         .from("reviews")
         .select(`
           id,
@@ -77,16 +79,34 @@ const CoursePageReviews = ({ id, reviewCount }: CoursePageReviewsProps) => {
         .eq("target_type", "course")
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Error fetching reviews:", error.message);
-      } else {
-        setReviews(data || []);
+      if (reviewsError) {
+        console.error("Error fetching reviews:", reviewsError.message);
+        setLoading(false);
+        return;
+      }
+
+      setReviews(reviewsData || []);
+
+      // Fetch user's votes for these reviews
+      if (reviewsData && reviewsData.length > 0) {
+        const reviewIds = reviewsData.map(r => r.id).join(',');
+        
+        try {
+          const response = await fetch(`/api/ratings/vote?review_ids=${reviewIds}`);
+          const votesData = await response.json();
+          
+          if (votesData.success) {
+            setUserVotes(votesData.votes || {});
+          }
+        } catch (error) {
+          console.error("Error fetching user votes:", error);
+        }
       }
 
       setLoading(false);
     };
 
-    fetchReviews();
+    fetchReviewsAndVotes();
   }, [id]);
 
   // Show only 3 unless expanded
@@ -114,7 +134,11 @@ const CoursePageReviews = ({ id, reviewCount }: CoursePageReviewsProps) => {
           </p>
         ) : (
           displayedReviews.map((review) => (
-            <CourseReviewItem key={review.id} review={review} />
+            <CourseReviewItem 
+              key={review.id} 
+              review={review} 
+              userVote={userVotes[review.id] || null}
+            />
           ))
         )}
       </div>
