@@ -48,9 +48,9 @@ export function useVotes(options: UseVotesOptions = {}): UseVotesReturn {
     counts: { helpful: number; unhelpful: number };
   }>>(new Map());
 
-  /**
-   * Fetch user votes for specified review IDs
-   */
+  
+  //Fetch user votes for specified review IDs
+  
   const fetchUserVotes = useCallback(async (ids: string[]) => {
     if (ids.length === 0) return;
 
@@ -80,18 +80,18 @@ export function useVotes(options: UseVotesOptions = {}): UseVotesReturn {
     }
   }, [onVoteError]);
 
-  /**
-   * Initial fetch on mount or when reviewIds change
-   */
+  
+  //Initial fetch on mount or when reviewIds change
+   
   useEffect(() => {
     if (reviewIds.length > 0) {
       fetchUserVotes(reviewIds);
     }
   }, [reviewIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /**
-   * Update vote counts optimistically
-   */
+  
+  //Update vote counts optimistically
+  
   const updateVoteCountsOptimistically = useCallback(
     (reviewId: string, oldVote: VoteType, newVote: VoteType) => {
       setVoteCounts(prev => {
@@ -116,9 +116,9 @@ export function useVotes(options: UseVotesOptions = {}): UseVotesReturn {
     []
   );
 
-  /**
-   * Rollback optimistic updates on error
-   */
+  
+  //Rollback optimistic updates on error
+  
   const rollbackVote = useCallback((reviewId: string) => {
     const cached = rollbackCache.current.get(reviewId);
     if (cached) {
@@ -134,9 +134,9 @@ export function useVotes(options: UseVotesOptions = {}): UseVotesReturn {
     }
   }, []);
 
-  /**
-   * Cast or update a vote
-   */
+  
+  //Cast or update a vote
+
   const castVote = useCallback(
     async (reviewId: string, voteType: 'helpful' | 'unhelpful') => {
       // Prevent concurrent operations on the same review
@@ -211,9 +211,7 @@ export function useVotes(options: UseVotesOptions = {}): UseVotesReturn {
     [votes, voteCounts, updateVoteCountsOptimistically, rollbackVote, onVoteSuccess, onVoteError]
   );
 
-  /**
-   * Remove a vote
-   */
+  //Remove a vote
   const removeVote = useCallback(
     async (reviewId: string) => {
       if (pendingOperations.current.has(reviewId)) {
@@ -281,9 +279,8 @@ export function useVotes(options: UseVotesOptions = {}): UseVotesReturn {
     [votes, voteCounts, updateVoteCountsOptimistically, rollbackVote, onVoteSuccess, onVoteError]
   );
 
-  /**
-   * Toggle vote - if same type, remove; otherwise update
-   */
+  //Toggle vote - if same type, remove; otherwise update
+   
   const toggleVote = useCallback(
     async (reviewId: string, voteType: 'helpful' | 'unhelpful') => {
       const currentVote = votes[reviewId];
