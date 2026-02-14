@@ -28,27 +28,33 @@ const CourseReviewItem = ({ review, userVote }: { review: any; userVote?: string
 
   return (
     <div className="p-3 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow h-full">
-      <div className="flex flex-col mb-2">
-        <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">
-          {getAnonymousName(review.anonymous_id)}
-        </h4>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
-          {formattedDate}
-        </span>
-      </div>
-      
-      <p className="text-xs text-gray-700 dark:text-gray-300 mb-3">
-        {review.comment || "No comment provided."}
-      </p>
+      <div className="flex justify-between items-start gap-3">
+        {/* Left side - Review content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-col mb-2">
+            <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">
+              {getAnonymousName(review.anonymous_id)}
+            </h4>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {formattedDate}
+            </span>
+          </div>
+          
+          <p className="text-xs text-gray-700 dark:text-gray-300">
+            {review.comment || "No comment provided."}
+          </p>
+        </div>
 
-      {/* Vote Button */}
-      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-        <VoteButton
-          reviewId={review.id}
-          initialVoteType={userVote as any}
-          initialVoteCount={review.votes || 0}
-          size="sm"
-        />
+        {/* Right side - Vote Button */}
+        <div className="flex-shrink-0">
+          <VoteButton
+            key={`${review.id}-${userVote || 'no-vote'}`}
+            reviewId={review.id}
+            initialVoteType={userVote as any}
+            initialVoteCount={review.votes || 0}
+            size="md"
+          />
+        </div>
       </div>
     </div>
   );

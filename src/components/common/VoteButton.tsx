@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { VoteType } from '@/hooks/useVote';
 
@@ -23,12 +23,21 @@ export function VoteButton({
   const [voteCount, setVoteCount] = useState(initialVoteCount);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Update state when props change (important for late-loading vote data)
+  useEffect(() => {
+    setCurrentVote(initialVoteType);
+  }, [initialVoteType]);
+
+  useEffect(() => {
+    setVoteCount(initialVoteCount);
+  }, [initialVoteCount]);
+
   // Size variants (Reddit-style vertical layout)
   const sizes = {
     sm: {
-      container: 'gap-0.5',
-      icon: 'w-4 h-4',
-      text: 'text-xs',
+      container: 'gap-0',
+      icon: 'w-3.5 h-3.5',
+      text: 'text-[10px]',
       padding: 'p-0.5',
     },
     md: {
