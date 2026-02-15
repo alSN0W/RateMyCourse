@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import AddReviewButton from "../AddReviewButton";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { VoteButton } from "@/components/common/VoteButton";
+import { VoteButton, VoteType } from "@/components/common/VoteButton";
 
 interface CoursePageReviewsProps {
   id: string; // Course ID
@@ -12,7 +12,7 @@ interface CoursePageReviewsProps {
 }
 
 /* Single Review Card (vertical format) */
-const CourseReviewItem = ({ review, userVote }: { review: any; userVote?: string | null }) => {
+const CourseReviewItem = ({ review, userVote }: { review: any; userVote?: VoteType }) => {
   const formattedDate = new Date(review.created_at).toLocaleString("en-IN", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -50,7 +50,7 @@ const CourseReviewItem = ({ review, userVote }: { review: any; userVote?: string
           <VoteButton
             key={`${review.id}-${userVote || 'no-vote'}`}
             reviewId={review.id}
-            initialVoteType={userVote as any}
+            initialVoteType={userVote}
             initialVoteCount={review.votes || 0}
             size="md"
           />
@@ -143,7 +143,7 @@ const CoursePageReviews = ({ id, reviewCount }: CoursePageReviewsProps) => {
             <CourseReviewItem 
               key={review.id} 
               review={review} 
-              userVote={userVotes[review.id] || null}
+              userVote={userVotes[review.id] as VoteType | undefined}
             />
           ))
         )}
