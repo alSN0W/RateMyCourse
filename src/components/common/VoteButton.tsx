@@ -110,11 +110,8 @@ const handleVote = async (voteType: 'helpful' | 'unhelpful') => {
 
     // Update with server response
     setCurrentVote(data.vote_type);
-
     // Callback
     if (onVote) {
-      setCurrentVote(data.vote_type);
-      setVoteCount(data.vote_count ?? newCount);
       onVote(reviewId, data.vote_type);
     }
 
