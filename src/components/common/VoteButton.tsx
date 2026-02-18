@@ -104,13 +104,14 @@ const handleVote = async (voteType: 'helpful' | 'unhelpful') => {
 
     const data = await response.json();
 
-    if (!data.success) {
-    // Update with server response
-    setCurrentVote(data.vote_type);
+    if (data.success) {
+      // Update with server response
+      setCurrentVote(data.vote_type);
 
-    // Callback
-    if (onVote) {
-      onVote(reviewId, data.vote_type);
+      // Callback
+      if (onVote) {
+        onVote(reviewId, data.vote_type);
+      }
     }
 
   } catch (error) {
