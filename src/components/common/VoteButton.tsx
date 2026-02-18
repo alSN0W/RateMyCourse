@@ -105,11 +105,9 @@ const handleVote = async (voteType: 'helpful' | 'unhelpful') => {
     const data = await response.json();
 
     if (!data.success) {
-      throw new Error(data.error || 'Failed to vote');
-    }
-
     // Update with server response
     setCurrentVote(data.vote_type);
+
     // Callback
     if (onVote) {
       onVote(reviewId, data.vote_type);
