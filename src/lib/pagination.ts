@@ -10,14 +10,16 @@ export function calculatePagination(
   page: number,
   limit: number
 ): PaginationMeta {
-  const totalPages = Math.ceil(totalItems / limit);
+  const safeTotal = Math.max(0, totalItems);
+  const safeLimit = Math.max(1, limit);
+  const totalPages = Math.ceil(safeTotal / safeLimit);
   const currentPage = Math.max(1, Math.min(page, totalPages));
 
   return {
     currentPage,
     totalPages,
-    totalItems,
-    itemsPerPage: limit,
+    totalItems: safeTotal,
+    itemsPerPage: safeLimit,
     hasNextPage: currentPage < totalPages,
     hasPreviousPage: currentPage > 1,
   };
