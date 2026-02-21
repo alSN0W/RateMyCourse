@@ -1,4 +1,3 @@
-// src/hooks/usePaginatedReviews.ts
 import { useState, useEffect, useCallback } from 'react';
 import { PaginatedResponse } from '@/types/pagination';
 
