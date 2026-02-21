@@ -2,9 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import AddReviewButton from "../AddReviewButton";
-import { ChevronRight, ChevronDown } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 import { VoteButton, VoteType } from "@/components/common/VoteButton";
+import { Pagination } from "@/components/common/Pagination";
+import { usePaginatedReviews } from "@/hooks/usePaginatedReviews";
 
 interface CoursePageReviewsProps {
   id: string; // Course ID
@@ -52,7 +52,7 @@ const CourseReviewItem = ({ review, userVote }: { review: any; userVote?: VoteTy
             reviewId={review.id}
             initialVoteType={userVote}
             initialVoteCount={review.votes || 0}
-            size="md"
+            size="sm"
           />
         </div>
       </div>
@@ -62,107 +62,98 @@ const CourseReviewItem = ({ review, userVote }: { review: any; userVote?: VoteTy
 
 /* Main Reviews Component */
 const CoursePageReviews = ({ id, reviewCount }: CoursePageReviewsProps) => {
-  const [reviews, setReviews] = useState<any[]>([]);
   const [userVotes, setUserVotes] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [showAll, setShowAll] = useState(false);
 
+  // Use pagination hook (always call hooks at top level)
+  const {
+    reviews,
+    currentPage,
+    totalPages,
+    totalItems,
+    isLoading,
+    error,
+    hasNextPage,
+    hasPreviousPage,
+    goToPage,
+  } = usePaginatedReviews({
+    targetId: id,
+    targetType: 'course',
+    initialPage: 1,
+    limit: 10,
+    sortBy: 'created_at',
+    sortOrder: 'desc',
+  });
+
+  // Fetch user votes whenever reviews change
   useEffect(() => {
-    const fetchReviewsAndVotes = async () => {
-      setLoading(true);
+    const fetchUserVotes = async () => {
+      if (reviews.length === 0) return;
 
-      // Fetch all reviews
-      const { data: reviewsData, error: reviewsError } = await supabase
-        .from("reviews")
-        .select(`
-          id,
-          anonymous_id,
-          comment,
-          votes,
-          created_at
-        `)
-        .eq("target_id", id)
-        .eq("target_type", "course")
-        .order("created_at", { ascending: false });
-
-      if (reviewsError) {
-        console.error("Error fetching reviews:", reviewsError.message);
-        setLoading(false);
-        return;
-      }
-
-      setReviews(reviewsData || []);
-
-      // Fetch user's votes for these reviews
-      if (reviewsData && reviewsData.length > 0) {
-        const reviewIds = reviewsData.map(r => r.id).join(',');
+      const reviewIds = reviews.map(r => r.id).join(',');
+      
+      try {
+        const response = await fetch(`/api/ratings/vote?review_ids=${reviewIds}`);
+        const votesData = await response.json();
         
-        try {
-          const response = await fetch(`/api/ratings/vote?review_ids=${reviewIds}`);
-          const votesData = await response.json();
-          
-          if (votesData.success) {
-            setUserVotes(votesData.votes || {});
-          }
-        } catch (error) {
-          console.error("Error fetching user votes:", error);
+        if (votesData.success) {
+          setUserVotes(votesData.votes || {});
         }
+      } catch (error) {
+        console.error("Error fetching user votes:", error);
       }
-
-      setLoading(false);
     };
 
-    fetchReviewsAndVotes();
-  }, [id]);
-
-  // Show only 3 unless expanded
-  const displayedReviews = showAll ? reviews : reviews.slice(0, 3);
+    fetchUserVotes();
+  }, [reviews]);
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-muted dark:border-gray-700 overflow-hidden">
       {/* Header */}
       <div className="p-3 border-b border-muted dark:border-gray-700 flex justify-between items-center">
         <h2 className="font-semibold text-gray-900 dark:text-gray-100">
-          Student Reviews
+          Student Reviews {totalItems > 0 && `(${totalItems})`}
         </h2>
         <AddReviewButton courseId={id} />
       </div>
 
       {/* Reviews list */}
       <div className="p-3 space-y-3">
-        {loading ? (
+        {isLoading && currentPage === 1 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Loading reviews...
+          </p>
+        ) : error ? (
+          <p className="text-sm text-red-500 dark:text-red-400">
+            Error: {error}
           </p>
         ) : reviews.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">
             No reviews yet for this course.
           </p>
         ) : (
-          displayedReviews.map((review) => (
-            <CourseReviewItem 
-              key={review.id} 
-              review={review} 
-              userVote={userVotes[review.id] as VoteType | undefined}
-            />
-          ))
+          <>
+            {reviews.map((review) => (
+              <CourseReviewItem 
+                key={review.id} 
+                review={review} 
+                userVote={userVotes[review.id] as VoteType | undefined}
+              />
+            ))}
+          </>
         )}
       </div>
 
-      {/* View All Toggle */}
-      {reviews.length > 3 && (
-        <div
-          onClick={() => setShowAll(!showAll)}
-          className="p-2 border-t border-muted dark:border-gray-700 text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-        >
-          <button className="text-primary hover:text-primary/80 text-sm font-medium flex items-center justify-center w-full">
-            {showAll ? "Show less" : `View all reviews`}
-            {showAll ? (
-              <ChevronDown className="h-4 w-4 ml-1" />
-            ) : (
-              <ChevronRight className="h-4 w-4 ml-1" />
-            )}
-          </button>
+      {/* Pagination - only show if more than 1 page */}
+      {totalPages > 1 && (
+        <div className="border-t border-muted dark:border-gray-700">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={goToPage}
+            hasNextPage={hasNextPage}
+            hasPreviousPage={hasPreviousPage}
+            isLoading={isLoading}
+          />
         </div>
       )}
     </div>

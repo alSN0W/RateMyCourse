@@ -1,4 +1,3 @@
-// src/lib/withPagination.ts
 import { NextApiRequest, NextApiResponse } from 'next';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { validatePaginationParams, getOffset, buildPaginationResponse } from '@/lib/pagination';

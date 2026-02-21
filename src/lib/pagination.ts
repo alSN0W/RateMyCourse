@@ -1,5 +1,3 @@
-// src/lib/pagination.ts
-
 import { PaginationParams, PaginationMeta, PaginationOptions } from '@/types/pagination';
 
 /**
