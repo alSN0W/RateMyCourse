@@ -60,89 +60,14 @@ export function VoteButton({
   const handleVote = async (voteType: 'helpful' | 'unhelpful') => {
     if (isLoading) return;
 
-    // Check if user is authenticated BEFORE making API call
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      toast.error('Please sign in to vote on reviews');
-      return;
-    }
-
-    setIsLoading(true);
-
-    // Save snapshot for rollback
-    const oldVote = currentVote;
-    const oldCount = voteCount;
-
-    try {
-      // Optimistic update
-      let newVote: VoteType;
-      let newCount = voteCount;
-
-      if (currentVote === voteType) {
-        // Toggle off - remove vote
-        newVote = null;
-        if (voteType === 'helpful') newCount--;
-        else newCount++;
-      } else {
-        // Switch vote or add new vote
-        newVote = voteType;
-        
-        // Remove old vote effect
-        if (oldVote === 'helpful') newCount--;
-        else if (oldVote === 'unhelpful') newCount++;
-        
-        // Add new vote effect
-        if (voteType === 'helpful') newCount++;
-        else newCount--;
-      }
-
-      setCurrentVote(newVote);
-      setVoteCount(newCount);
-
-      // API call
-      const response = await fetch('/api/ratings/vote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ review_id: reviewId, vote_type: voteType }),
-      });
-
-      // Handle auth errors specifically
-      if (response.status === 401) {
-        toast.error('Please sign in to vote on reviews');
-        // Rollback
-        setCurrentVote(oldVote);
-        setVoteCount(oldCount);
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error('Failed to vote');
-      }
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to vote');
-      }
-
-      // Update with server response for vote type
+    if (data.success) {
+      // Update with server response
       setCurrentVote(data.vote_type);
 
       // Callback
       if (onVote) {
         onVote(reviewId, data.vote_type);
       }
-
-    } catch (error) {
-      console.error('Error voting:', error);
-      toast.error('Failed to vote. Please try again.');
-      
-      // Rollback on error using saved snapshot
-      setCurrentVote(oldVote);
-      setVoteCount(oldCount);
-    } finally {
-      setIsLoading(false);
     }
   };
 

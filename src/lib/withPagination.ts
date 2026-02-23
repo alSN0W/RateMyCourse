@@ -73,6 +73,10 @@ export function withPagination<T = any>({
         return res.status(500).json({ error: 'Failed to fetch data', success: false });
       }
 
+      if (count === null) {
+        console.warn('withPagination: count is null — did buildQuery include { count: "exact" } in .select()?');
+      }
+
       // Optionally transform results
       const results: T[] = transform
         ? (data || []).map(transform)
