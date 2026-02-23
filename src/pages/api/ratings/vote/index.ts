@@ -2,12 +2,13 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@/utils/supabase/server-pages';
 
 /**
- * Vote API Route
+ * Vote API Route - UPDATED to prevent duplicate votes using auth_id
  * Handles helpful/unhelpful functionality for course and professor reviews
  */
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const supabase = createClient(req, res);
+
   // Handle POST - Cast or update vote
   if (req.method === 'POST') {
     try {
@@ -25,9 +26,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Get user session
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
-      if (authError && authError.message !== 'Auth session missing!') {
+      if (authError || !user) {
         console.error('Auth error:', authError);
-        return res.status(401).json({ error: 'Authentication error' });
+        return res.status(401).json({ error: 'Authentication required' });
       }
 
       // Get anonymous ID
@@ -39,13 +40,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const anonymous_id = anonData;
+      const auth_id = user.id; // Track real user to prevent duplicates
 
-      // Check if user already voted
+      // Check if user already voted (by auth_id to prevent duplicate anonymous_ids)
       const { data: existingVote, error: checkError } = await supabase
         .from('votes')
         .select('id, vote_type')
         .eq('review_id', review_id)
-        .eq('anonymous_id', anonymous_id)
+        .eq('auth_id', auth_id) // ← Check by real user, not anonymous_id
         .single();
 
       if (checkError && checkError.code !== 'PGRST116') {
@@ -76,7 +78,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (existingVote && existingVote.vote_type !== vote_type) {
         const { error: updateError } = await supabase
           .from('votes')
-          .update({ vote_type, created_at: new Date().toISOString() })
+          .update({ 
+            vote_type, 
+            anonymous_id, // Update anonymous_id in case it changed
+            created_at: new Date().toISOString() 
+          })
           .eq('id', existingVote.id);
 
         if (updateError) {
@@ -97,6 +103,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .insert({
           review_id,
           anonymous_id,
+          auth_id, // ← Add auth_id to track real user
           vote_type,
         });
 
@@ -126,22 +133,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'review_ids parameter is required' });
       }
 
-      // Get anonymous ID
-      const { data: anonData, error: anonError } = await supabase.rpc('get_anonymous_id');
+      // Get user session
+      const { data: { user } } = await supabase.auth.getUser();
       
-      if (anonError || !anonData) {
-        console.error('Error getting anonymous ID:', anonError);
-        return res.status(500).json({ error: 'Failed to get user identifier' });
+      if (!user) {
+        // If not logged in, return empty votes
+        return res.status(200).json({
+          success: true,
+          votes: {},
+        });
       }
 
-      const anonymous_id = anonData;
+      const auth_id = user.id;
       const reviewIdArray = review_ids.split(',').map(id => id.trim());
 
-      // Batch fetch votes
+      // Batch fetch votes by auth_id
       const { data: votes, error: fetchError } = await supabase
         .from('votes')
         .select('review_id, vote_type')
-        .eq('anonymous_id', anonymous_id)
+        .eq('auth_id', auth_id) // ← Fetch by real user
         .in('review_id', reviewIdArray);
 
       if (fetchError) {
@@ -175,22 +185,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'review_id is required' });
       }
 
-      // Get anonymous ID
-      const { data: anonData, error: anonError } = await supabase.rpc('get_anonymous_id');
+      // Get user session
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
       
-      if (anonError || !anonData) {
-        console.error('Error getting anonymous ID:', anonError);
-        return res.status(500).json({ error: 'Failed to get user identifier' });
+      if (authError || !user) {
+        return res.status(401).json({ error: 'Authentication required' });
       }
 
-      const anonymous_id = anonData;
+      const auth_id = user.id;
 
-      // Delete the vote
+      // Delete the vote by auth_id
       const { error: deleteError } = await supabase
         .from('votes')
         .delete()
         .eq('review_id', review_id)
-        .eq('anonymous_id', anonymous_id);
+        .eq('auth_id', auth_id); // ← Delete by real user
 
       if (deleteError) {
         console.error('Error deleting vote:', deleteError);
