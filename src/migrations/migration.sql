@@ -92,19 +92,15 @@ CREATE TABLE reviews (
 );
 
 -- Create the votes table
--- UPDATED: Now tracks auth_id to prevent duplicate votes from same user
 CREATE TABLE votes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   review_id UUID NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
   anonymous_id UUID NOT NULL,
-  auth_id UUID NOT NULL, -- Track real user to prevent duplicates
   vote_type TEXT NOT NULL CHECK (vote_type IN ('helpful', 'unhelpful')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   
-  -- Ensure a user can only vote once per review (using anonymous_id for backward compatibility)
-  UNIQUE (review_id, anonymous_id),
-  -- NEW: Prevent same real user from voting twice (even with different anonymous_ids)
-  UNIQUE (review_id, auth_id)
+  -- Ensure a user can only vote once per review
+  UNIQUE (review_id, anonymous_id)
 );
 
 -- Create the flags table
@@ -124,7 +120,6 @@ CREATE TABLE flags (
 CREATE INDEX idx_reviews_target ON reviews(target_id, target_type);
 CREATE INDEX idx_reviews_anonymous_id ON reviews(anonymous_id);
 CREATE INDEX idx_votes_review_id ON votes(review_id);
-CREATE INDEX idx_votes_auth_id ON votes(auth_id); -- NEW: Index for auth_id lookups
 CREATE INDEX idx_flags_review_id ON flags(review_id);
 CREATE INDEX idx_flags_status ON flags(status);
 
@@ -454,26 +449,25 @@ CREATE POLICY review_delete ON reviews
   );
 
 -- Vote policies
--- UPDATED: Now checks auth_id to prevent duplicate votes
 CREATE POLICY vote_select ON votes 
   FOR SELECT USING (true);
 
 CREATE POLICY vote_insert ON votes 
   FOR INSERT WITH CHECK (
     auth.uid() IS NOT NULL AND 
-    auth_id = auth.uid()
+    anonymous_id = get_anonymous_id()
   );
 
 CREATE POLICY vote_update ON votes 
   FOR UPDATE USING (
-    auth_id = auth.uid()
+    anonymous_id = get_anonymous_id()
   ) WITH CHECK (
-    auth_id = auth.uid()
+    anonymous_id = get_anonymous_id()
   );
 
 CREATE POLICY vote_delete ON votes 
   FOR DELETE USING (
-    auth_id = auth.uid() OR is_admin()
+    anonymous_id = get_anonymous_id() OR is_admin()
   );
 
 -- Flag policies
@@ -493,32 +487,29 @@ CREATE POLICY flag_delete ON flags
   FOR DELETE USING (is_admin());
 
 -- Create function to create an anonymous user on signup
--- UPDATED: Added check to prevent duplicate users
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
   new_salt TEXT;
   new_hash TEXT;
-  existing_user_count INT;
 BEGIN
-  -- Check if user already exists in our users table
-  SELECT COUNT(*) INTO existing_user_count 
-  FROM public.users 
-  WHERE auth_id = NEW.id;
+  -- Generate a salt
+  -- We explicitly call the function inside the 'extensions' schema
+  new_salt := encode(extensions.gen_random_bytes(16), 'hex');
   
-  -- Only create if doesn't exist
-  IF existing_user_count = 0 THEN
-    -- Generate a salt
-    new_salt := encode(extensions.gen_random_bytes(16), 'hex');
-    
-    -- Create verification hash
-    new_hash := encode(extensions.digest(NEW.email || new_salt, 'sha256'), 'hex');
-    
-    -- Insert new user
-    INSERT INTO public.users (auth_id, verification_hash, salt)
-    VALUES (NEW.id, new_hash, new_salt);
-  END IF;
+  -- Create verification hash (placeholder)
+  -- We explicitly call the function inside the 'extensions' schema
+  new_hash := encode(extensions.digest(NEW.email || new_salt, 'sha256'), 'hex');
+  
+  -- Insert new user
+  INSERT INTO public.users (auth_id, verification_hash, salt)
+  VALUES (NEW.id, new_hash, new_salt);
   
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to create user profile after auth user is created
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
