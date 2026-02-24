@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
-import toast from 'react-hot-toast';
-import { supabase } from '@/lib/supabase';
 
 export type VoteType = 'helpful' | 'unhelpful' | null;
+
 
 interface VoteButtonProps {
   reviewId: string;
@@ -57,8 +56,53 @@ export function VoteButton({
     },
   };
 
-  const handleVote = async (voteType: 'helpful' | 'unhelpful') => {
-    if (isLoading) return;
+const handleVote = async (voteType: 'helpful' | 'unhelpful') => {
+  if (isLoading) return;
+
+  setIsLoading(true);
+
+  // Save snapshot for rollback (moved outside try)
+  const oldVote = currentVote;
+  const oldCount = voteCount;
+
+  try {
+    // Optimistic update
+    let newVote: VoteType;
+    let newCount = voteCount;
+
+    if (currentVote === voteType) {
+      // Toggle off - remove vote
+      newVote = null;
+      if (voteType === 'helpful') newCount--;
+      else newCount++;
+    } else {
+      // Switch vote or add new vote
+      newVote = voteType;
+      
+      // Remove old vote effect
+      if (oldVote === 'helpful') newCount--;
+      else if (oldVote === 'unhelpful') newCount++;
+      
+      // Add new vote effect
+      if (voteType === 'helpful') newCount++;
+      else newCount--;
+    }
+
+    setCurrentVote(newVote);
+    setVoteCount(newCount);
+
+    // API call
+    const response = await fetch('/api/ratings/vote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ review_id: reviewId, vote_type: voteType }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to vote');
+    }
+
+    const data = await response.json();
 
     if (data.success) {
       // Update with server response
@@ -69,7 +113,16 @@ export function VoteButton({
         onVote(reviewId, data.vote_type);
       }
     }
-  };
+
+  } catch (error) {
+    console.error('Error voting:', error);
+    // Rollback on error using saved snapshot
+    setCurrentVote(oldVote);
+    setVoteCount(oldCount);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div 
@@ -95,7 +148,7 @@ export function VoteButton({
           }
           ${isLoading ? 'cursor-not-allowed' : 'cursor-pointer'}
         `}
-        aria-label="Mark as helpful"
+        aria-label="Upvote"
       >
         <ChevronUp 
           className={`${sizes[size].icon}`}
@@ -138,7 +191,7 @@ export function VoteButton({
           }
           ${isLoading ? 'cursor-not-allowed' : 'cursor-pointer'}
         `}
-        aria-label="Mark as unhelpful"
+        aria-label="Downvote"
       >
         <ChevronDown 
           className={`${sizes[size].icon}`}
