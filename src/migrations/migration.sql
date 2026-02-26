@@ -454,27 +454,28 @@ CREATE POLICY review_delete ON reviews
   );
 
 -- Vote policies
--- UPDATED: Now checks auth_id to prevent duplicate votes
-CREATE POLICY vote_select ON votes 
-  FOR SELECT USING (true);
+CREATE POLICY "Allow public to read votes" 
+ON votes FOR SELECT 
+USING (true);
 
-CREATE POLICY vote_insert ON votes 
-  FOR INSERT WITH CHECK (
-    auth.uid() IS NOT NULL AND 
-    auth_id = auth.uid()
-  );
+-- Authenticated users can insert votes with their own auth_id
+CREATE POLICY "Authenticated users can insert their own votes" 
+ON votes FOR INSERT 
+TO authenticated
+WITH CHECK (auth_id = auth.uid());
 
-CREATE POLICY vote_update ON votes 
-  FOR UPDATE USING (
-    auth_id = auth.uid()
-  ) WITH CHECK (
-    auth_id = auth.uid()
-  );
+-- Users can update their own votes
+CREATE POLICY "Users can update their own votes" 
+ON votes FOR UPDATE 
+TO authenticated
+USING (auth_id = auth.uid())
+WITH CHECK (auth_id = auth.uid());
 
-CREATE POLICY vote_delete ON votes 
-  FOR DELETE USING (
-    auth_id = auth.uid() OR is_admin()
-  );
+-- Users can delete their own votes
+CREATE POLICY "Users can delete their own votes" 
+ON votes FOR DELETE 
+TO authenticated
+USING (auth_id = auth.uid());
 
 -- Flag policies
 CREATE POLICY flag_select ON flags 
@@ -493,7 +494,6 @@ CREATE POLICY flag_delete ON flags
   FOR DELETE USING (is_admin());
 
 -- Create function to create an anonymous user on signup
--- UPDATED: Added check to prevent duplicate users
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
